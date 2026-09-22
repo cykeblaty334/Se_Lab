@@ -261,7 +261,7 @@ python -m flake8 src tests      # 静态检查：PEP 8 + 行宽 100，当前零�
 
 当前状态：**363 个用例全部通过，语句覆盖率 92%**
 （planner / quiz / exporter / knowledge / config 100%，recorder / reviewer 99%，
-analyzer / models / visualizer 97%，database / scraper 96%，webapp 95%，main 72%）
+analyzer / models / visualizer 97%，database / scraper 96%，webapp 95%，main 73%）
 
 测试不依赖真实网络与真实数据库：数据库使用临时文件或内存库，
 网络请求通过可注入的 `Session` 桩对象替换。
