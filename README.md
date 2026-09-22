@@ -221,6 +221,7 @@ python -m src.main
 
 ```bash
 python -m pytest tests -q --cov=src --cov-report=term-missing
+python -m flake8 src tests      # 静态检查：PEP 8 + 行宽 100，当前零告警
 ```
 
 当前状态：**323 个用例全部通过，语句覆盖率 91%**

@@ -668,7 +668,10 @@ class Database:
 
     def quiz_stats(self, days: Optional[int] = None) -> Dict[str, object]:
         """统计闪卡作答情况：次数、平均分、通过率。"""
-        sql = "SELECT COUNT(*) AS attempts, AVG(score) AS avg_score, SUM(passed) AS passed FROM quiz_log"
+        sql = (
+            "SELECT COUNT(*) AS attempts, AVG(score) AS avg_score, "
+            "SUM(passed) AS passed FROM quiz_log"
+        )
         params: List[object] = []
         if days:
             sql += " WHERE quiz_date >= ?"

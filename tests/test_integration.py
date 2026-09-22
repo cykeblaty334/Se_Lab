@@ -385,6 +385,9 @@ def test_tc_int_010_export_backup_restore_roundtrip(cli_isolated, capsys):
         assert handle.read(16) == b"SQLite format 3\x00"
     conn = sqlite3.connect(str(db_file))
     try:
-        assert conn.execute("SELECT COUNT(*) FROM practice_records WHERE is_wrong = 1").fetchone()[0] == 1
+        wrong_rows = conn.execute(
+            "SELECT COUNT(*) FROM practice_records WHERE is_wrong = 1"
+        ).fetchone()[0]
+        assert wrong_rows == 1
     finally:
         conn.close()

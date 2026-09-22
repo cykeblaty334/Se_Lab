@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """可视化模块单元测试：图表文件生成与数据不足时的容错。"""
 
-import pytest
-
 from src.analyzer import Analyzer
 from src.models import ModuleDiagnosis
 from src.visualizer import configure_fonts, plot_all, plot_radar, plot_trend, plot_weak_bar

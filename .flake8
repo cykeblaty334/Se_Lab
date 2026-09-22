@@ -1,0 +1,8 @@
+[flake8]
+# Keep consistent with the report: PEP 8 with a 100-character line limit.
+# NOTE: comments must stay ASCII - pytest/iniconfig reads config files with the
+# platform default encoding (GBK on Chinese Windows) and would fail on non-ASCII.
+max-line-length = 100
+# E203 / W503 conflict with black's slicing and operator line-break style.
+extend-ignore = E203, W503
+exclude = .git, __pycache__, .pytest_cache, data

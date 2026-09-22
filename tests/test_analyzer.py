@@ -33,7 +33,12 @@ def test_stability_score():
 
 
 def test_compute_score_weights_sum_to_one():
-    assert config.WEIGHT_ACCURACY + config.WEIGHT_EFFICIENCY + config.WEIGHT_STABILITY == pytest.approx(1.0)
+    weight_sum = (
+        config.WEIGHT_ACCURACY
+        + config.WEIGHT_EFFICIENCY
+        + config.WEIGHT_STABILITY
+    )
+    assert weight_sum == pytest.approx(1.0)
     assert compute_score(1.0, 1.0, 1.0) == 100.0
     assert compute_score(0.0, 0.0, 0.0) == 0.0
     assert compute_score(0.5, 0.5, 0.5) == 50.0

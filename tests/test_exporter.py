@@ -351,11 +351,12 @@ def test_restore_does_not_touch_target_on_failure(tmp_path):
 # ------------------------------------------------------- 备份重名（回归 ISSUE-002）
 def test_unique_backup_path_avoids_collision(tmp_path):
     """同一秒内多次备份不得互相覆盖。"""
-    assert unique_backup_path(tmp_path, "ceats_20260921_090000").name == "ceats_20260921_090000.db"
-    (tmp_path / "ceats_20260921_090000.db").write_text("x", encoding="utf-8")
-    assert unique_backup_path(tmp_path, "ceats_20260921_090000").name == "ceats_20260921_090000_1.db"
-    (tmp_path / "ceats_20260921_090000_1.db").write_text("x", encoding="utf-8")
-    assert unique_backup_path(tmp_path, "ceats_20260921_090000").name == "ceats_20260921_090000_2.db"
+    stem = "ceats_20260921_090000"
+    assert unique_backup_path(tmp_path, stem).name == f"{stem}.db"
+    (tmp_path / f"{stem}.db").write_text("x", encoding="utf-8")
+    assert unique_backup_path(tmp_path, stem).name == f"{stem}_1.db"
+    (tmp_path / f"{stem}_1.db").write_text("x", encoding="utf-8")
+    assert unique_backup_path(tmp_path, stem).name == f"{stem}_2.db"
 
 
 def test_backup_twice_in_same_second_keeps_both(tmp_path):

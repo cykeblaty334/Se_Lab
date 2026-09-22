@@ -171,7 +171,9 @@ def test_scrape_site_reports_page_change():
 def test_scrape_site_success_and_limit():
     session = FakeSession()
     scraper = AnnouncementScraper(retries=0, session=session)
-    site_result, items = scraper.scrape_site("测试站", "http://x.com", config.DEFAULT_KEYWORDS, limit=2)
+    site_result, items = scraper.scrape_site(
+        "测试站", "http://x.com", config.DEFAULT_KEYWORDS, limit=2
+    )
     assert site_result.success is True
     assert site_result.count == 2
     assert len(items) == 2
@@ -219,7 +221,8 @@ def test_scrape_and_store_persists_announcements(seeded_db):
 
 def test_scrape_and_store_falls_back_to_navigation(seeded_db):
     """断网场景：仍能入库官方入口链接，功能不中断。"""
-    scraper = AnnouncementScraper(retries=0, backoff=0, session=FakeSession(error=requests.ConnectionError("断网")))
+    session = FakeSession(error=requests.ConnectionError("断网"))
+    scraper = AnnouncementScraper(retries=0, backoff=0, session=session)
     result = scrape_and_store(seeded_db, scraper=scraper)
     assert result.used_fallback is True
     stored = seeded_db.list_announcements()
