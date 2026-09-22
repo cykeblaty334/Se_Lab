@@ -34,6 +34,9 @@ coverage.xml
 data/*.db
 data/*.db-journal
 data/charts/
+# 导出的报告与数据库备份同样包含个人成绩，不上传
+data/exports/
+data/backups/
 !data/.gitkeep
 
 # ---------------------------------------------------------------- 其它
