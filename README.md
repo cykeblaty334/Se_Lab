@@ -30,6 +30,7 @@
 | 错题备忘 | 录入成绩可打 `is_wrong` 标记，支持事后补打/取消；自动生成「今日优先复盘清单」（错题多 + 正确率低 + 耗时长的考点优先） |
 | 报告与备份 | 一键导出 Markdown / CSV 诊断报告；一键备份数据库为带时间戳的快照，支持安全还原 |
 | 数据管理 | 一键初始化建表与字典、演示数据写入、备考目标设置、录错的记录可删除与纠错 |
+| 本地 Web 界面 | 浏览器图形界面（仪表盘 / 录入 / 记录 / 诊断 / 图表 / 计划 / 复盘 / 抽测 / 知识库 / 数据管理），只监听 127.0.0.1 |
 
 ### 功能特性
 
@@ -41,7 +42,7 @@
 采用「轻界面、重逻辑、数据驱动」的四层架构，依赖方向严格单向（无循环依赖）：
 
 ```
-展示层 Presentation   main.py（CLI）  visualizer.py（图表）
+展示层 Presentation   main.py（CLI）  webapp.py（本地 Web）  visualizer.py（图表）
         ↓
 业务层 Logic         recorder.py  analyzer.py  scraper.py  knowledge.py
                     planner.py   quiz.py      reviewer.py  exporter.py
@@ -67,11 +68,15 @@ Se_Lab/
 │   ├── scraper.py        业务层：公告抓取（重试 / 隔离 / 降级导航）
 │   ├── knowledge.py      业务层：知识库检索与分类浏览
 │   ├── visualizer.py     展示层：雷达图 / 折线图 / 排名图
-│   └── main.py           展示层：CLI 入口（17 个子命令 + 交互菜单）
-├── tests/                13 个测试文件，328 个用例
-├── docs/                 设计图、图表与文档
+│   ├── webapp.py         展示层：本地 Web 界面（Flask 路由 + 10 个功能页）
+│   ├── templates/        Web 页面模板（base + 10 个功能页）
+│   ├── static/style.css  Web 样式表
+│   └── main.py           展示层：CLI 入口（18 个子命令 + 交互菜单）
+├── tests/                14 个测试文件，363 个用例
+├── docs/                 设计图、图表、界面截图与文档
 │   ├── diagrams/         用例图×2、系统结构图、模块依赖图、类图、时序图×2、ER 图、流程图
 │   ├── charts/           雷达图、趋势图、得分排名图
+│   ├── screenshots/      本地 Web 界面截图（仪表盘、录入、记录、诊断、图表、计划、复盘、抽测、知识库、数据管理）
 │   ├── 需求规格说明书.md
 │   └── CONTRIBUTING.md
 ├── data/                 SQLite 本地数据库与图表输出（不上传敏感数据）
@@ -137,6 +142,34 @@ python -m src.main
 
 启动时会自动读取备考计划并打印倒计时提醒；数据库不存在或读取异常时该提醒静默跳过，不影响主流程。
 
+### 4.5 本地 Web 界面（日常使用推荐）
+
+```bash
+python -m src.main web            # 默认 http://127.0.0.1:5000/
+python -m src.main web --open     # 启动后自动打开浏览器
+python -m src.main web --port 8080
+```
+
+界面共 10 个功能页，全部复用 CLI 的同一套 Service 层，读写的是同一个 `data/ceats.db`，
+因此 CLI 与 Web 可以混用、数据完全一致：
+
+| 页面 | 路径 | 能做什么 |
+| --- | --- | --- |
+| 仪表盘 | `/` | 4 张指标卡 + 弱项诊断 + 目标差距 + 最近记录 + 三张图表 |
+| 成绩录入 | `/record` | 表单录入：考点自动补全、错题勾选、可补录历史日期 |
+| 练习记录 | `/records` | 列表筛选（全部 / 只看错题）、标记或取消错题、删除记录 |
+| 弱项诊断 | `/report` | 整体概览 + 模块诊断明细 + 效率预警 + 文本版报告 |
+| 可视化图表 | `/charts` | 三张图在线查看，一键重新生成 |
+| 备考计划 | `/plan` | 设置考试日期与目标分，实时看各模块差距 |
+| 今日复盘 | `/review` | 优先复盘清单 + 知识卡片 + 最近错题 |
+| 闪卡抽测 | `/quiz` | 网页抽题作答，提交后立即判分并列出遗漏要点 |
+| 知识库 | `/knowledge` | 关键词检索或按分类浏览公式 / 技巧 / 模板 |
+| 数据管理 | `/data` | 导出 MD/CSV、备份、安全还原、查看数据文件位置 |
+
+![仪表盘](docs/screenshots/01-dashboard.png)
+
+服务只监听 `127.0.0.1`，练习数据不会离开本机；关闭终端窗口即停止服务。
+
 ## 5. 命令参考
 
 | 命令 | 说明 | 常用参数 |
@@ -152,6 +185,7 @@ python -m src.main
 | `review` | 生成今日优先复盘清单 | `--days` / `--top` |
 | `note` | 补打或取消某条记录的错题标记 | `--id` / `--clear` |
 | `delete` | 删除一条录错的记录（默认二次确认，脚本调用可加 `--yes`） | `--id` / `--yes` |
+| `web` | 启动本地 Web 界面（浏览器访问，只监听 127.0.0.1） | `--host` / `--port` / `--open` |
 | `export` | 导出 Markdown / CSV 诊断报告 | `--format md\|csv\|all` / `--out` |
 | `backup` | 备份数据库为带时间戳的快照（空库会拒绝，防止生成无意义的空快照） | `--list` |
 | `restore` | 从备份文件还原数据库（还原前自动再备份一次当前库） | `--file`（留空用最新备份） |
@@ -225,9 +259,9 @@ python -m pytest tests -q --cov=src --cov-report=term-missing
 python -m flake8 src tests      # 静态检查：PEP 8 + 行宽 100，当前零告警
 ```
 
-当前状态：**328 个用例全部通过，语句覆盖率 91%**
+当前状态：**363 个用例全部通过，语句覆盖率 92%**
 （planner / quiz / exporter / knowledge / config 100%，recorder / reviewer 99%，
-analyzer / models / visualizer 97%，scraper 96%，database 94%，main 72%）
+analyzer / models / visualizer 97%，database / scraper 96%，webapp 95%，main 72%）
 
 测试不依赖真实网络与真实数据库：数据库使用临时文件或内存库，
 网络请求通过可注入的 `Session` 桩对象替换。
@@ -244,7 +278,8 @@ analyzer / models / visualizer 97%，scraper 96%，database 94%，main 72%）
 
 ## 9. 技术栈
 
-Python 3.12 · SQLite 3 · requests · BeautifulSoup4 + lxml · Matplotlib · pytest / pytest-cov · Git / GitHub
+Python 3.12 · SQLite 3 · requests · BeautifulSoup4 + lxml · Matplotlib · Flask（本地 Web 界面）
+· pytest / pytest-cov · Git / GitHub
 
 ## 10. 开发约定
 

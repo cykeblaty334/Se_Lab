@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}仪表盘 · CEATS{% endblock %}
+{% block heading %}备考仪表盘{% endblock %}
+
+{% block content %}
+<div class="grid cols-4">
+  <div class="card">
+    <div class="metric-label">练习记录</div>
+    <div class="metric-value">{{ overall.records }} <small>条</small></div>
+    <div class="metric-label">覆盖 {{ overall.covered_modules }}/{{ overall.total_modules }} 个模块</div>
+  </div>
+  <div class="card">
+    <div class="metric-label">累计题量</div>
+    <div class="metric-value">{{ overall.total_questions }} <small>题</small></div>
+    <div class="metric-label">做对 {{ overall.correct_questions }} 题</div>
+  </div>
+  <div class="card">
+    <div class="metric-label">整体正确率</div>
+    <div class="metric-value">{{ overall.accuracy }}<small>%</small></div>
+    <div class="bar"><span style="width: {{ overall.accuracy }}%"></span></div>
+  </div>
+  <div class="card">
+    <div class="metric-label">单题平均耗时</div>
+    <div class="metric-value">{{ overall.seconds_per_question }} <small>秒</small></div>
+    <div class="metric-label">目标 45 秒以内</div>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h2>弱项诊断（按综合得分升序）</h2>
+    {% if diagnoses %}
+    <table>
+      <thead>
+        <tr>
+          <th>模块</th><th class="num">记录</th><th class="num">正确率</th>
+          <th class="num">单题</th><th class="num">综合得分</th><th>判定</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in diagnoses %}
+        <tr>
+          <td>{{ item.module_name }}</td>
+          <td class="num">{{ item.records }}</td>
+          <td class="num">{{ (item.accuracy * 100) | round(1) }}%</td>
+          <td class="num">{{ item.seconds_per_question | round(1) }}s</td>
+          <td class="num">{{ item.final_score | round(1) }}</td>
+          <td>
+            {% if item.records == 0 %}
+            <span class="tag">未练习</span>
+            {% elif item.is_weak %}
+            <span class="tag weak">弱项</span>
+            {% else %}
+            <span class="tag good">正常</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">还没有练习记录，先到「成绩录入」录入一条吧。</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>目标拆解与当前差距</h2>
+    {% if target_rows %}
+    <table>
+      <thead>
+        <tr><th>模块</th><th class="num">建议正确率</th><th class="num">当前正确率</th><th>差距</th></tr>
+      </thead>
+      <tbody>
+        {% for row in target_rows %}
+        <tr>
+          <td>{{ row.module_name }}</td>
+          <td class="num">{{ row.ratio }}%</td>
+          <td class="num">{{ row.current if row.current is not none else '—' }}{% if row.current is not none %}%{% endif %}</td>
+          <td class="muted">{{ row.gap }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted">建议正确率 = 黄金比例基准 × 目标总分 / 135，可在 src/config.py 调整。</p>
+    {% else %}
+    <div class="empty">尚未设置备考计划，去「备考计划」页设置考试日期与目标分。</div>
+    {% endif %}
+
+    <h3>最近闪卡抽测（30 天）</h3>
+    <p class="muted">
+      作答 {{ quiz_stats.attempts }} 题，平均得分 {{ quiz_stats.avg_score }} 分，
+      通过率 {{ quiz_stats.pass_rate }}%
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>最近练习记录</h2>
+  {% if recent %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>日期</th><th>模块</th><th>考点</th><th class="num">对/总</th>
+        <th class="num">正确率</th><th class="num">单题</th><th>错题</th></tr>
+    </thead>
+    <tbody>
+      {% for r in recent %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.record_date }}</td>
+        <td>{{ r.module_name }}</td>
+        <td>{{ r.topic_name or '—' }}</td>
+        <td class="num">{{ r.correct_questions }}/{{ r.total_questions }}</td>
+        <td class="num">{{ (r.accuracy * 100) | round(1) }}%</td>
+        <td class="num">{{ r.seconds_per_question | round(1) }}s</td>
+        <td>{% if r.is_wrong %}<span class="tag wrong">是</span>{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">暂无练习记录。</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>可视化图表</h2>
+  <div class="grid cols-3">
+    {% for chart in charts %}
+    <div class="chart-box">
+      {% if chart.exists %}
+      <a href="{{ url_for('chart_file', filename=chart.name) }}" target="_blank">
+        <img src="{{ url_for('chart_file', filename=chart.name) }}" alt="{{ chart.label }}">
+      </a>
+      <div class="caption">{{ chart.label }} · 更新于 {{ chart.mtime }}</div>
+      {% else %}
+      <div class="empty">{{ chart.label }} 尚未生成</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <form class="inline-form" method="post" action="{{ url_for('refresh_charts') }}">
+    <button type="submit">重新生成图表</button>
+  </form>
+  <a class="btn ghost" href="{{ url_for('charts') }}">查看大图</a>
+</div>
+{% endblock %}

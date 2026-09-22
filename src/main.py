@@ -301,6 +301,19 @@ def cmd_note(args) -> int:
     return 0
 
 
+def cmd_web(args) -> int:
+    """启动本地 Web 界面（延迟导入 flask，便于未安装依赖时给出友好提示）。"""
+    try:
+        from .webapp import main as web_main
+    except ImportError as exc:  # pragma: no cover - 依赖缺失时的兜底提示
+        _print(f"启动失败：缺少 Web 依赖（{exc}），请先执行 pip install flask")
+        return 1
+    argv = ["--host", args.host, "--port", str(args.port)]
+    if getattr(args, "open", False):
+        argv.append("--open")
+    return web_main(argv)
+
+
 def cmd_delete(args) -> int:
     """删除一条练习记录（默认需要二次确认，``--yes`` 可跳过）。"""
     db = Database()
@@ -721,6 +734,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--yes", action="store_true", help="跳过二次确认（脚本调用时使用）"
     )
 
+    web_parser = subparsers.add_parser("web", help="启动本地 Web 界面")
+    web_parser.add_argument("--host", default="127.0.0.1", help="监听地址，默认仅本机")
+    web_parser.add_argument("--port", type=int, default=5000, help="监听端口，默认 5000")
+    web_parser.add_argument("--open", action="store_true", help="启动后自动打开浏览器")
+
     export_parser = subparsers.add_parser("export", help="导出诊断报告")
     export_parser.add_argument("--format", choices=["md", "csv", "all"], default="md",
                                help="导出格式，默认 Markdown")
@@ -772,6 +790,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "review": cmd_review,
         "note": cmd_note,
         "delete": cmd_delete,
+        "web": cmd_web,
         "export": cmd_export,
         "backup": cmd_backup,
         "restore": cmd_restore,

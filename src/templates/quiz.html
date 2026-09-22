@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}闪卡抽测 · CEATS{% endblock %}
+{% block heading %}闪卡抽测{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>抽题设置</h2>
+  <form method="get" action="{{ url_for('quiz') }}">
+    <div class="form-row">
+      <div class="field">
+        <label>抽测题数</label>
+        <input type="number" name="count" min="1" max="13" value="3">
+      </div>
+      <div class="field">
+        <label>限定分类（可留空）</label>
+        <select name="category">
+          <option value="">全部分类</option>
+          {% for category in categories %}
+          <option value="{{ category }}">{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="submit">抽题</button>
+  </form>
+  <p class="muted">
+    判分为本地算法（答案归一化 + 要点片段加权覆盖率），离线可复现，不依赖大模型；
+    作答结果会写入抽测日志，用于统计薄弱知识点。
+  </p>
+</div>
+
+{% if questions %}
+<div class="card">
+  <h2>请作答（用自己的话写出公式或要点即可）</h2>
+  <form method="post" action="{{ url_for('quiz') }}">
+    {% for question in questions %}
+    <div class="q-card">
+      <div class="q-title">{{ loop.index }}. 【{{ question.category }}】{{ question.question }}</div>
+      <textarea name="answer_{{ loop.index0 }}" rows="3" style="width:100%"
+                placeholder="写下你能回忆出的公式 / 要点"></textarea>
+    </div>
+    {% endfor %}
+    <button type="submit">提交并判分</button>
+  </form>
+</div>
+{% endif %}
+
+{% if graded %}
+<div class="card">
+  <h2>本轮结果</h2>
+  <p class="mono">{{ summary }}</p>
+  {% for row in graded %}
+  <div class="q-card">
+    <div class="q-title">
+      {{ loop.index }}. 【{{ row.result.question.category }}】{{ row.result.question.keyword }}
+    </div>
+    <p>
+      <span class="score {% if row.result.passed %}pass{% else %}fail{% endif %}">
+        {{ row.result.score }}
+      </span> 分 · {{ row.result.level }}
+    </p>
+    <p class="muted">标准答案：{{ row.expected }}</p>
+    {% if row.result.missed_fragments %}
+    <p class="muted">遗漏要点：{{ row.result.missed_fragments | join('、') }}</p>
+    {% endif %}
+    {% if row.result.question.example %}
+    <p class="muted">示例：{{ row.result.question.example }}</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <a class="btn" href="{{ url_for('quiz') }}">再来一轮</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>历史抽测统计（最近 30 天）</h2>
+  <pre class="mono">{{ stats }}</pre>
+</div>
+{% endblock %}

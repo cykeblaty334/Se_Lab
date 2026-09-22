@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}备考计划 · CEATS{% endblock %}
+{% block heading %}备考计划与目标拆解{% endblock %}
+
+{% block content %}
+<div class="grid cols-2">
+  <div class="card">
+    <h2>设置备考计划</h2>
+    <form method="post" action="{{ url_for('plan') }}">
+      <div class="form-row">
+        <div class="field">
+          <label>考试名称</label>
+          <input type="text" name="exam_name"
+                 value="{{ plan.exam_name if plan else default_name }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>考试日期（YYYY-MM-DD）</label>
+          <input type="date" name="exam_date" required
+                 value="{{ plan.exam_date if plan else default_date }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>目标总分（行测 + 申论，200 分制）</label>
+          <input type="number" step="0.5" name="target_score" required
+                 value="{{ plan.target_score if plan else default_target }}">
+        </div>
+        <div class="field">
+          <label>申论预期分（须小于目标总分）</label>
+          <input type="number" step="0.5" name="essay_score"
+                 value="{{ plan.essay_score if plan else default_essay }}">
+        </div>
+      </div>
+      <button type="submit">保存计划</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>当前状态</h2>
+    {% if plan %}
+    <div class="grid cols-2">
+      <div><div class="metric-label">剩余时间</div>
+        <div class="metric-value">{{ plan.days_remaining }} <small>天</small></div></div>
+      <div><div class="metric-label">目标总分</div>
+        <div class="metric-value">{{ plan.target_score }} <small>分</small></div></div>
+      <div><div class="metric-label">行测目标</div>
+        <div class="metric-value">{{ plan.xingce_target }} <small>分</small></div></div>
+      <div><div class="metric-label">申论预期</div>
+        <div class="metric-value">{{ plan.essay_score }} <small>分</small></div></div>
+    </div>
+    <p class="muted">考试名称：{{ plan.exam_name }} · 考试日期：{{ plan.exam_date }}</p>
+    {% else %}
+    <div class="empty">尚未设置备考计划。</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>模块目标拆解（按黄金比例缩放）</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>模块</th><th class="num">黄金比例</th><th class="num">建议正确率</th>
+        <th class="num">建议得分</th><th class="num">当前正确率</th><th>差距</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.module_name }}</td>
+        <td class="num">{{ row.golden }}%</td>
+        <td class="num">{{ row.ratio }}%</td>
+        <td class="num">{{ row.target_score }}</td>
+        <td class="num">{{ row.current if row.current is not none else '—' }}{% if row.current is not none %}%{% endif %}</td>
+        <td class="muted">{{ row.gap }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">按上述目标正确率估算，行测可得约 {{ estimated }} / 100 分。</p>
+</div>
+{% endblock %}

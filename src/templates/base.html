@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CEATS 公考量化分析系统{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-logo">C</span>
+      <div>
+        <div class="brand-name">CEATS</div>
+        <div class="brand-sub">公考量化分析系统</div>
+      </div>
+    </div>
+    <nav>
+      {% for endpoint, label, hint in nav_items %}
+      <a class="nav-item {% if request.endpoint == endpoint %}active{% endif %}"
+         href="{{ url_for(endpoint) }}" title="{{ hint }}">
+        <span class="nav-label">{{ label }}</span>
+        <span class="nav-hint">{{ hint }}</span>
+      </a>
+      {% endfor %}
+    </nav>
+    <div class="sidebar-foot">
+      <div>本地运行 · 数据不出本机</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1>{% block heading %}仪表盘{% endblock %}</h1>
+      {% if countdown_banner %}
+      <div class="countdown">{{ countdown_banner }}</div>
+      {% else %}
+      <div class="countdown muted">尚未设置备考计划，可在「备考计划」页设置考试日期与目标分</div>
+      {% endif %}
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <footer class="foot">
+      CEATS v1.1.0 · 命令行入口 <code>python -m src.main</code> ·
+      Web 入口 <code>python -m src.main web</code>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

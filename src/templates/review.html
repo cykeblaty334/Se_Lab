@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}今日复盘 · CEATS{% endblock %}
+{% block heading %}今日优先复盘清单{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>清单范围：最近 {{ days }} 天 · 累计错题 {{ wrong_total }} 条</h2>
+  <p class="muted">
+    优先级 = 3.0 × 错题数 + 2.0 × (1 − 正确率) + 1.5 × max(0, 单题耗时 / 45 − 1)；
+    只有“有错题 / 正确率低于 60% / 单题耗时超过 45 秒”的考点才会进入清单。
+  </p>
+  <div>
+    <a class="btn ghost small" href="{{ url_for('review', days=7) }}">最近 7 天</a>
+    <a class="btn ghost small" href="{{ url_for('review', days=30) }}">最近 30 天</a>
+    <a class="btn ghost small" href="{{ url_for('review', days=3650) }}">全部记录</a>
+  </div>
+</div>
+
+{% if rows %}
+{% for row in rows %}
+<div class="card">
+  <h2>
+    {{ loop.index }}. {{ row.item.module_name }} / {{ row.item.topic_name }}
+    <span class="tag weak">优先级 {{ row.item.priority }}</span>
+  </h2>
+  <p class="muted">
+    题量 {{ row.item.correct_questions }}/{{ row.item.total_questions }} ·
+    正确率 {{ (row.item.accuracy * 100) | round(1) }}% ·
+    单题 {{ row.item.seconds_per_question | round(1) }}s ·
+    错题 {{ row.item.wrong_records }} 条
+  </p>
+  <p>{{ row.item.reason }}</p>
+  {% if row.references %}
+  <h3>知识卡片</h3>
+  <ul class="muted">
+    {% for reference in row.references %}<li>{{ reference }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+  <div class="empty">
+    当前范围内没有触发复盘条件的考点（无错题、正确率与做题节奏正常），今天可以继续推进新内容。
+  </div>
+</div>
+{% endif %}
+
+{% if weak_keywords %}
+<div class="card">
+  <h2>闪卡抽测薄弱点</h2>
+  <ul>
+    {% for row in weak_keywords %}
+    <li>{{ row.keyword }}：平均 {{ row.avg_score | round(1) }} 分</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>最近的错题记录</h2>
+  {% if wrong_records %}
+  <table>
+    <thead>
+      <tr><th>ID</th><th>日期</th><th>模块</th><th>考点</th>
+        <th class="num">对/总</th><th class="num">正确率</th></tr>
+    </thead>
+    <tbody>
+      {% for r in wrong_records %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.record_date }}</td>
+        <td>{{ r.module_name }}</td>
+        <td>{{ r.topic_name or '—' }}</td>
+        <td class="num">{{ r.correct_questions }}/{{ r.total_questions }}</td>
+        <td class="num">{{ (r.accuracy * 100) | round(1) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">暂无错题记录。录入时勾选“错题标记”或用「练习记录」页补打标记。</div>
+  {% endif %}
+</div>
+{% endblock %}

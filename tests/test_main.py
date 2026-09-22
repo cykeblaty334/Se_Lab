@@ -24,6 +24,7 @@ from src.main import (
     cmd_report,
     cmd_restore,
     cmd_scrape,
+    cmd_web,
     main,
 )
 
@@ -71,6 +72,7 @@ def test_build_parser_recognizes_all_commands():
     assert parser.parse_args([]).command is None  # 无参数时进入交互菜单
     assert parser.parse_args(["kb", "--keyword", "增长率"]).keyword == "增长率"
     assert parser.parse_args(["demo", "--days", "10"]).days == 10
+    assert parser.parse_args(["web", "--port", "5001"]).port == 5001
 
 
 def test_record_requires_mandatory_arguments():
@@ -82,6 +84,19 @@ def test_record_requires_mandatory_arguments():
 def test_main_dispatches_init(cli_env, capsys):
     assert main(["init"]) == 0
     assert "数据库初始化完成" in capsys.readouterr().out
+
+
+def test_cmd_web_delegates_to_webapp(monkeypatch):
+    """web 子命令应把 host / port / open 透传给 webapp.main。"""
+    captured = {}
+
+    def fake_web_main(argv):
+        captured["argv"] = argv
+        return 0
+
+    monkeypatch.setattr("src.webapp.main", fake_web_main)
+    assert cmd_web(argparse.Namespace(host="127.0.0.1", port=5001, open=True)) == 0
+    assert captured["argv"] == ["--host", "127.0.0.1", "--port", "5001", "--open"]
 
 
 # ------------------------------------------------------------------ 命令行为

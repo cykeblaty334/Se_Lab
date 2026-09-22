@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}弱项诊断 · CEATS{% endblock %}
+{% block heading %}弱项诊断报告{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>整体概览{% if days %}（最近 {{ days }} 天）{% endif %}</h2>
+  <div class="grid cols-4">
+    <div><div class="metric-label">记录条数</div><div class="metric-value">{{ overall.records }}</div></div>
+    <div><div class="metric-label">累计题量</div><div class="metric-value">{{ overall.total_questions }}</div></div>
+    <div><div class="metric-label">正确率</div><div class="metric-value">{{ overall.accuracy }}<small>%</small></div></div>
+    <div><div class="metric-label">单题耗时</div><div class="metric-value">{{ overall.seconds_per_question }}<small>s</small></div></div>
+  </div>
+  <div>
+    <a class="btn ghost small" href="{{ url_for('report') }}">全部记录</a>
+    <a class="btn ghost small" href="{{ url_for('report', days=7) }}">最近 7 天</a>
+    <a class="btn ghost small" href="{{ url_for('report', days=30) }}">最近 30 天</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>模块诊断明细</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>模块</th><th class="num">记录</th><th class="num">题量</th>
+        <th class="num">正确率</th><th class="num">单题耗时</th>
+        <th class="num">效率分</th><th class="num">稳定性</th><th class="num">综合得分</th><th>判定</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in diagnoses %}
+      <tr>
+        <td>{{ item.module_name }}</td>
+        <td class="num">{{ item.records }}</td>
+        <td class="num">{{ item.total_questions }}</td>
+        <td class="num">{{ (item.accuracy * 100) | round(1) }}%</td>
+        <td class="num">{{ item.seconds_per_question | round(1) }}s</td>
+        <td class="num">{{ (item.efficiency_score * 100) | round(1) }}</td>
+        <td class="num">{{ (item.stability_score * 100) | round(1) }}</td>
+        <td class="num">{{ item.final_score | round(1) }}</td>
+        <td>
+          {% if item.records == 0 %}<span class="tag">未练习</span>
+          {% elif item.is_weak %}<span class="tag weak">弱项</span>
+          {% else %}<span class="tag good">正常</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if slow %}
+<div class="card">
+  <h2>效率预警（单题耗时超过 60 秒）</h2>
+  <ul>
+    {% for item in slow %}
+    <li>{{ item.module_name }}：单题 {{ item.seconds_per_question | round(1) }} 秒，建议复盘解题步骤</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>文本版诊断报告</h2>
+  <pre class="report">{{ text_report }}</pre>
+</div>
+{% endblock %}

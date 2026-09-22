@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}成绩录入 · CEATS{% endblock %}
+{% block heading %}成绩录入{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>录入一次练习</h2>
+  <form method="post" action="{{ url_for('record') }}">
+    <div class="form-row">
+      <div class="field">
+        <label>模块（必填）</label>
+        <select name="module" required>
+          {% for module in modules %}
+          <option value="{{ module.id }}">{{ loop.index }}. {{ module.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>考点（可留空，也可直接输入自定义考点）</label>
+        <input type="text" name="topic" list="topic-options" placeholder="如 行程问题 / 自定义考点">
+        <datalist id="topic-options">
+          {% for topic in topics %}
+          <option value="{{ topic.name }}"></option>
+          {% endfor %}
+        </datalist>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>总题数（必填）</label>
+        <input type="number" name="total" min="1" required placeholder="20">
+      </div>
+      <div class="field">
+        <label>对题数（必填，不得大于总题数）</label>
+        <input type="number" name="correct" min="0" required placeholder="9">
+      </div>
+      <div class="field">
+        <label>用时（25:30 / 1:05:00 / 1500 秒）</label>
+        <input type="text" name="duration" required placeholder="25:30">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>日期（留空为今天，可补录历史成绩）</label>
+        <input type="date" name="record_date">
+      </div>
+      <div class="field">
+        <label>备注</label>
+        <input type="text" name="note" placeholder="如 第一次模考">
+      </div>
+      <div class="field">
+        <label>错题标记</label>
+        <div class="checkbox">
+          <input type="checkbox" name="is_wrong" id="is_wrong">
+          <label for="is_wrong">标记为错题 / 难题，进入复盘清单</label>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit">保存记录</button>
+    <a class="btn ghost" href="{{ url_for('records') }}">查看记录</a>
+  </form>
+</div>
+
+<div class="card">
+  <h2>录入规则</h2>
+  <ul class="muted">
+    <li>用时支持 <code>25:30</code>（分:秒）、<code>1:05:00</code>（时:分:秒）、<code>1500</code>（秒）三种写法，上限 24 小时；</li>
+    <li>对题数不得大于总题数，任一字段非法都会被拦截且<b>不写入数据库</b>；</li>
+    <li>考点可填字典内的，也可直接写自定义考点（系统自动落库）；留空表示不细分；</li>
+    <li>录入后立即给出正确率、单题耗时与效率预警。</li>
+  </ul>
+</div>
+{% endblock %}

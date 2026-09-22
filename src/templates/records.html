@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}练习记录 · CEATS{% endblock %}
+{% block heading %}练习记录{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>
+    共 {{ total }} 条记录，其中错题 {{ wrong_total }} 条
+    {% if only_wrong %}<span class="tag wrong">当前仅看错题</span>{% endif %}
+  </h2>
+  <div>
+    <a class="btn ghost small" href="{{ url_for('records', limit=limit) }}">全部记录</a>
+    <a class="btn ghost small" href="{{ url_for('records', limit=limit, wrong=1) }}">只看错题</a>
+    <a class="btn ghost small" href="{{ url_for('records', limit=50) }}">最近 50 条</a>
+  </div>
+</div>
+
+<div class="card">
+  {% if records %}
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th><th>日期</th><th>模块</th><th>考点</th>
+        <th class="num">对/总</th><th class="num">正确率</th><th class="num">单题</th>
+        <th>备注</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.record_date }}</td>
+        <td>{{ r.module_name }}</td>
+        <td>{{ r.topic_name or '—' }}</td>
+        <td class="num">{{ r.correct_questions }}/{{ r.total_questions }}</td>
+        <td class="num">{{ (r.accuracy * 100) | round(1) }}%</td>
+        <td class="num">{{ r.seconds_per_question | round(1) }}s</td>
+        <td>
+          {% if r.note %}{{ r.note }}{% endif %}
+          {% if r.is_wrong %}<span class="tag wrong">错题</span>{% endif %}
+        </td>
+        <td>
+          <form class="inline-form" method="post"
+                action="{{ url_for('toggle_wrong', record_id=r.id) }}">
+            {% if r.is_wrong %}
+            <input type="hidden" name="clear" value="1">
+            <button class="btn ghost small" type="submit">取消错题</button>
+            {% else %}
+            <button class="btn ghost small" type="submit">标记错题</button>
+            {% endif %}
+          </form>
+          <form class="inline-form" method="post"
+                action="{{ url_for('delete_record', record_id=r.id) }}"
+                onsubmit="return confirm('确认删除记录 #{{ r.id }}？该操作不可撤销。');">
+            <button class="btn danger small" type="submit">删除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">没有符合条件的记录。</div>
+  {% endif %}
+</div>
+{% endblock %}

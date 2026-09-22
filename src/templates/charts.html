@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}可视化图表 · CEATS{% endblock %}
+{% block heading %}可视化图表{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>图表状态</h2>
+  <p class="muted">
+    图表由 visualizer 模块生成，固定使用 matplotlib 的 Agg 后端落盘，
+    因此服务端不需要图形界面，也不会弹窗。
+  </p>
+  <form method="post" action="{{ url_for('refresh_charts') }}">
+    <button type="submit">重新生成三张图表</button>
+  </form>
+</div>
+
+{% for chart in charts %}
+<div class="card">
+  <h2>{{ chart.label }}</h2>
+  {% if chart.exists %}
+  <div class="chart-box">
+    <img src="{{ url_for('chart_file', filename=chart.name) }}" alt="{{ chart.label }}">
+    <div class="caption">文件：{{ chart.name }} · 生成时间 {{ chart.mtime }}</div>
+  </div>
+  {% else %}
+  <div class="empty">尚未生成，点击上方按钮生成。</div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

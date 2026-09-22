@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}数据管理 · CEATS{% endblock %}
+{% block heading %}数据管理{% endblock %}
+
+{% block content %}
+<div class="grid cols-3">
+  <div class="card">
+    <div class="metric-label">练习记录</div>
+    <div class="metric-value">{{ totals.records }} <small>条</small></div>
+  </div>
+  <div class="card">
+    <div class="metric-label">错题记录</div>
+    <div class="metric-value">{{ totals.wrong }} <small>条</small></div>
+  </div>
+  <div class="card">
+    <div class="metric-label">知识库条目</div>
+    <div class="metric-value">{{ totals.knowledge }} <small>条</small></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>导出诊断报告</h2>
+  <p class="muted">导出 Markdown 与 CSV 到 <code>data/exports/</code>，可直接打印或粘贴进笔记软件。</p>
+  <form class="inline-form" method="post" action="{{ url_for('data_export') }}">
+    <input type="hidden" name="format" value="all">
+    <button type="submit">导出 Markdown + CSV</button>
+  </form>
+  <form class="inline-form" method="post" action="{{ url_for('data_export') }}">
+    <input type="hidden" name="format" value="md">
+    <button class="btn ghost" type="submit">仅 Markdown</button>
+  </form>
+  <form class="inline-form" method="post" action="{{ url_for('data_export') }}">
+    <input type="hidden" name="format" value="csv">
+    <button class="btn ghost" type="submit">仅 CSV</button>
+  </form>
+
+  {% if exports %}
+  <h3>最近导出</h3>
+  <ul class="muted">
+    {% for path in exports %}<li>{{ path.name }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>数据库备份与还原</h2>
+  <p class="muted">
+    备份使用 SQLite 官方 <code>Connection.backup</code> 生成一致性快照（带时间戳、自动避让重名）；
+    还原前会校验文件头与核心表，并自动再备份一次当前库，避免误还原覆盖成绩。
+  </p>
+  <form class="inline-form" method="post" action="{{ url_for('data_backup') }}">
+    <button type="submit">立即备份</button>
+  </form>
+  <form class="inline-form" method="post" action="{{ url_for('data_restore') }}"
+        onsubmit="return confirm('确认从最新备份还原？当前数据库会被覆盖（还原前会自动再备份一次）。');">
+    <button class="btn danger" type="submit">从最新备份还原</button>
+  </form>
+
+  {% if backups %}
+  <h3>备份文件</h3>
+  <ul class="muted">
+    {% for path in backups %}<li>{{ path.name }}</li>{% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty">暂无备份文件。</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>数据存放位置</h2>
+  <p class="mono">{{ db_path }}</p>
+  <p class="muted">
+    所有成绩只保存在本地 SQLite 文件中，服务只监听 127.0.0.1，数据不会离开这台电脑；
+    仓库已通过 .gitignore 忽略 <code>data/</code>，成绩不会被提交到 GitHub。
+  </p>
+</div>
+{% endblock %}

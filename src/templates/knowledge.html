@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}知识库 · CEATS{% endblock %}
+{% block heading %}知识库检索{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>检索公式 / 技巧 / 申论模板</h2>
+  <form method="get" action="{{ url_for('knowledge') }}">
+    <div class="form-row">
+      <div class="field">
+        <label>关键词（支持命中关键词、正文与分类）</label>
+        <input type="text" name="q" value="{{ keyword }}" placeholder="如 增长率 / 隔年增长率">
+      </div>
+      <div class="field">
+        <label>或按分类浏览</label>
+        <select name="category">
+          <option value="">不限定分类</option>
+          {% for cat in categories %}
+          <option value="{{ cat }}" {% if cat == category %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="submit">检索</button>
+    <a class="btn ghost" href="{{ url_for('knowledge') }}">重置</a>
+  </form>
+  <p class="muted">
+    检索在数据层用 <code>LIKE</code> 完成：关键词字段命中优先于正文命中；
+    查不到时换个更短的关键词通常更有效。
+  </p>
+</div>
+
+<div class="card">
+  <h2>结果（{{ items | length }} 条）</h2>
+  {% if items %}
+  {% for item in items %}
+  <div class="q-card">
+    <div class="q-title">【{{ item.category }}】{{ item.keyword }}</div>
+    <p>{{ item.content }}</p>
+    {% if item.example %}<p class="muted">示例：{{ item.example }}</p>{% endif %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty">未找到匹配条目，可尝试更简短的关键词（如「增长率」「申论」）。</div>
+  {% endif %}
+</div>
+{% endblock %}
