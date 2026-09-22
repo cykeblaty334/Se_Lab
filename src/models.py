@@ -55,6 +55,7 @@ class PracticeRecord:
     duration_seconds: int
     note: str = ""
     created_at: str = ""
+    is_wrong: bool = False
     module_name: str = ""
     topic_name: str = ""
 
@@ -86,6 +87,7 @@ class PracticeRecord:
             duration_seconds=row["duration_seconds"],
             note=row["note"] or "",
             created_at=row["created_at"],
+            is_wrong=bool(row["is_wrong"]) if "is_wrong" in keys else False,
             module_name=row["module_name"] if "module_name" in keys else "",
             topic_name=(row["topic_name"] or "") if "topic_name" in keys else "",
         )
@@ -171,4 +173,58 @@ class ModuleDiagnosis:
             "final_score": self.final_score,
             "is_weak": self.is_weak,
             "weak_topics": list(self.weak_topics),
+        }
+
+
+@dataclass
+class ReviewItem:
+    """复盘清单条目：一个待优先复习的考点。"""
+
+    topic_id: Optional[int]
+    topic_name: str
+    module_name: str
+    records: int = 0
+    total_questions: int = 0
+    correct_questions: int = 0
+    wrong_records: int = 0
+    duration_seconds: int = 0
+    accuracy: float = 0.0
+    seconds_per_question: float = 0.0
+    priority: float = 0.0
+    reason: str = ""
+    references: List[str] = field(default_factory=list)
+
+
+@dataclass
+class QuizQuestion:
+    """闪卡抽测题目：由知识库条目生成。"""
+
+    item_id: Optional[int]
+    keyword: str
+    category: str
+    question: str
+    expected: str
+    example: str = ""
+
+
+@dataclass
+class QuizResult:
+    """一次闪卡作答复盘结果。"""
+
+    question: QuizQuestion
+    answer: str
+    score: float = 0.0
+    passed: bool = False
+    level: str = ""
+    hit_fragments: List[str] = field(default_factory=list)
+    missed_fragments: List[str] = field(default_factory=list)
+
+    def as_dict(self) -> dict:
+        return {
+            "keyword": self.question.keyword,
+            "category": self.question.category,
+            "answer": self.answer,
+            "score": self.score,
+            "passed": self.passed,
+            "level": self.level,
         }

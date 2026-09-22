@@ -214,9 +214,11 @@ class RecordService:
         topic_raw: str = "",
         date_raw: str = "",
         note: str = "",
+        is_wrong: bool = False,
     ) -> PracticeRecord:
         """校验并保存一次练习记录。
 
+        :param is_wrong: 是否标记为错题/难题，供复盘清单优先推荐。
         :raises RecordError: 任一字段非法。
         """
         module = self.match_module(module_raw)
@@ -234,6 +236,7 @@ class RecordService:
             duration_seconds=duration,
             topic_id=topic.id if topic else None,
             note=note,
+            is_wrong=is_wrong,
         )
         record = self.db.get_record(record_id)
         if record is None:  # pragma: no cover - 仅防御性分支
@@ -256,11 +259,14 @@ def build_feedback(record: PracticeRecord) -> str:
     )
     lines = [
         f"已保存：{record.record_date} | {record.module_name}"
-        + (f" / {record.topic_name}" if record.topic_name else ""),
+        + (f" / {record.topic_name}" if record.topic_name else "")
+        + ("  [已标记错题]" if record.is_wrong else ""),
         f"题数 {record.correct_questions}/{record.total_questions}，"
         f"正确率 {metrics['accuracy_percent']}%，"
         f"单题耗时 {metrics['seconds_per_question']}s（{metrics['speed_level']}）",
     ]
+    if record.is_wrong:
+        lines.append("提示：该考点已进入复盘清单，可用 python -m src.main review 查看优先级。")
     if metrics["is_slow"]:
         lines.append(
             f"提示：单题耗时超过 {int(config.SLOW_QUESTION_SECONDS)}s，"
