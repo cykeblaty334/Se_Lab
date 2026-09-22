@@ -61,8 +61,8 @@ MENU_TEXT = f"""
  4. 生成可视化图表  5. 招考公告抓取     6. 知识库查询
  7. 备考计划/倒计时 8. 闪卡抽测刷题     9. 今日优先复盘
  10. 导出报告      11. 数据备份/还原   12. 标记错题
- 0. 退出
-============================================================"""
+ 13. 删除记录      0. 退出
+============================================================="""
 
 
 def _print(text: str = "") -> None:
@@ -297,6 +297,35 @@ def cmd_note(args) -> int:
         f"{record.module_name}"
         + (f" / {record.topic_name}" if record.topic_name else "")
     )
+    db.close()
+    return 0
+
+
+def cmd_delete(args) -> int:
+    """删除一条练习记录（默认需要二次确认，``--yes`` 可跳过）。"""
+    db = Database()
+    record = db.get_record(args.id)
+    if record is None:
+        _print(f"未找到记录：{args.id}（可先执行 list 命令查看现有 ID）")
+        db.close()
+        return 1
+    _print(
+        f"待删除：#{record.id} {record.record_date} {record.module_name}"
+        + (f" / {record.topic_name}" if record.topic_name else "")
+        + f"  {record.correct_questions}/{record.total_questions} 题"
+    )
+    if not getattr(args, "yes", False):
+        try:
+            confirm = _prompt("确认删除？该操作不可撤销(y/N)", "n")
+        except EOFError:
+            # 无人值守场景（管道 / 重定向）读不到输入时按“取消”处理，避免误删
+            confirm = "n"
+        if confirm.lower() not in {"y", "yes", "是"}:
+            _print("已取消删除，数据未改动。")
+            db.close()
+            return 0
+    db.delete_record(record.id)
+    _print(f"已删除记录 #{record.id}，数据库现有 {db.count_records()} 条练习记录。")
     db.close()
     return 0
 
@@ -583,11 +612,17 @@ def cmd_menu(args) -> int:
                     _print(f"未找到记录：{record_id}")
                 else:
                     _print(f"{'已取消错题标记' if clear else '已标记为错题'}：#{record.id}")
+            elif choice == "13":
+                record_id = _prompt("要删除的记录 ID（列表见功能 2）")
+                if not record_id.isdigit():
+                    _print("记录 ID 必须是数字。")
+                    continue
+                cmd_delete(argparse.Namespace(id=int(record_id), yes=False))
             elif choice in {"0", "q", "quit", "exit"}:
                 _print("已退出 CEATS，祝你早日上岸！")
                 break
             else:
-                _print("无效的编号，请输入 0-12。")
+                _print("无效的编号，请输入 0-13。")
         except RecordError as exc:
             _print(f"输入有误：{exc}")
         except PlanError as exc:
@@ -680,6 +715,12 @@ def build_parser() -> argparse.ArgumentParser:
     note_parser.add_argument("--id", type=int, required=True, help="练习记录 ID")
     note_parser.add_argument("--clear", action="store_true", help="取消错题标记")
 
+    delete_parser = subparsers.add_parser("delete", help="删除一条练习记录")
+    delete_parser.add_argument("--id", type=int, required=True, help="练习记录 ID")
+    delete_parser.add_argument(
+        "--yes", action="store_true", help="跳过二次确认（脚本调用时使用）"
+    )
+
     export_parser = subparsers.add_parser("export", help="导出诊断报告")
     export_parser.add_argument("--format", choices=["md", "csv", "all"], default="md",
                                help="导出格式，默认 Markdown")
@@ -730,6 +771,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "quiz": cmd_quiz,
         "review": cmd_review,
         "note": cmd_note,
+        "delete": cmd_delete,
         "export": cmd_export,
         "backup": cmd_backup,
         "restore": cmd_restore,

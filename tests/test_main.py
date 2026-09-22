@@ -15,6 +15,7 @@ from src.main import (
     build_parser,
     cmd_backup,
     cmd_chart,
+    cmd_delete,
     cmd_demo,
     cmd_init,
     cmd_menu,
@@ -295,6 +296,77 @@ def test_cmd_scrape_persists_results(cli_env, monkeypatch, capsys):
     db.close()
 
 
+# ------------------------------------------------------------------ 删除记录
+def _record_one_via_cli() -> int:
+    """用 CLI 录一条记录并返回其 ID，供删除相关用例复用。"""
+    assert cmd_record(
+        argparse.Namespace(
+            module="数量关系",
+            total="20",
+            correct="9",
+            duration="25:30",
+            topic="行程问题",
+            date="",
+            note="",
+            wrong=False,
+        )
+    ) == 0
+    db = Database()
+    record_id = db.list_records()[0].id
+    db.close()
+    return record_id
+
+
+def test_cmd_delete_removes_record(cli_env, capsys):
+    """delete --yes 应删除指定记录，并回报剩余条数。"""
+    record_id = _record_one_via_cli()
+
+    assert cmd_delete(argparse.Namespace(id=record_id, yes=True)) == 0
+    output = capsys.readouterr().out
+    assert "已删除记录" in output
+    assert "现有 0 条练习记录" in output
+
+    db = Database()
+    assert db.count_records() == 0
+    assert db.get_record(record_id) is None
+    db.close()
+
+
+def test_cmd_delete_missing_record_returns_error(cli_env, capsys):
+    """删除不存在的 ID 时返回非零退出码，且不抛异常。"""
+    assert cmd_delete(argparse.Namespace(id=999, yes=True)) == 1
+    assert "未找到记录" in capsys.readouterr().out
+
+
+def test_cmd_delete_cancelled_keeps_record(cli_env, monkeypatch, capsys):
+    """未加 --yes 时必须经二次确认，回答 n 则数据保持不变。"""
+    record_id = _record_one_via_cli()
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "n")
+
+    assert cmd_delete(argparse.Namespace(id=record_id, yes=False)) == 0
+    assert "已取消删除" in capsys.readouterr().out
+
+    db = Database()
+    assert db.count_records() == 1
+    db.close()
+
+
+def test_cmd_delete_cancelled_when_no_input(cli_env, monkeypatch, capsys):
+    """无人值守（读到 EOF）时不得删除，按取消处理。"""
+    record_id = _record_one_via_cli()
+
+    def _raise_eof(prompt=""):
+        raise EOFError
+
+    monkeypatch.setattr(builtins, "input", _raise_eof)
+    assert cmd_delete(argparse.Namespace(id=record_id, yes=False)) == 0
+    assert "已取消删除" in capsys.readouterr().out
+
+    db = Database()
+    assert db.count_records() == 1
+    db.close()
+
+
 # ------------------------------------------------------------------ 交互模式
 def test_prompt_returns_default(monkeypatch):
     monkeypatch.setattr(builtins, "input", lambda prompt="": "")
@@ -401,3 +473,25 @@ def test_interactive_keyboard_interrupt_is_caught(cli_env, monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "已取消当前操作" in output
     assert "已退出 CEATS" in output
+
+
+def test_delete_record_via_menu(cli_env, monkeypatch, capsys):
+    """菜单功能 13：非数字 ID 被拦截，合法 ID 二次确认后删除。"""
+    record_id = _record_one_via_cli()
+    _fake_input(
+        monkeypatch,
+        [
+            "13", "abc",                 # 非数字 -> 提示后继续
+            "13", str(record_id), "y",   # 合法 ID + 确认删除
+            "0",
+        ],
+    )
+    assert cmd_menu(argparse.Namespace()) == 0
+    output = capsys.readouterr().out
+    assert "记录 ID 必须是数字" in output
+    assert "待删除" in output
+    assert "已删除记录" in output
+
+    db = Database()
+    assert db.count_records() == 0
+    db.close()
