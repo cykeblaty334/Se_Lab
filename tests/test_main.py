@@ -3,20 +3,29 @@
 
 import argparse
 import builtins
+from pathlib import Path
 
 import pytest
 
 from src import config
 from src.database import Database
+from src.exporter import list_backups
 from src.main import (
     _prompt,
     build_parser,
+    cmd_backup,
     cmd_chart,
     cmd_demo,
+    cmd_export,
     cmd_init,
     cmd_menu,
+    cmd_note,
+    cmd_plan,
+    cmd_quiz,
     cmd_record,
     cmd_report,
+    cmd_restore,
+    cmd_review,
     cmd_scrape,
     main,
 )
@@ -24,10 +33,16 @@ from src.main import (
 
 @pytest.fixture()
 def cli_env(tmp_path, monkeypatch):
-    """把数据库与图表输出重定向到临时目录，避免污染真实数据。"""
+    """把数据库、图表、导出与备份目录全部重定向到临时目录。
+
+    EXPORT_DIR / BACKUP_DIR 在 config 导入时由 DATA_DIR 派生，
+    因此必须单独替换，否则测试会写进仓库的 data/ 目录。
+    """
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
     monkeypatch.setattr(config, "DB_PATH", tmp_path / "cli.db")
     monkeypatch.setattr(config, "CHART_DIR", tmp_path / "charts")
+    monkeypatch.setattr(config, "EXPORT_DIR", tmp_path / "exports")
+    monkeypatch.setattr(config, "BACKUP_DIR", tmp_path / "backups")
     return tmp_path
 
 
@@ -80,7 +95,8 @@ def test_cmd_demo_then_report_and_chart(cli_env, capsys):
 
     db = Database()
     assert db.count_records() > 0
-    assert db.get_exam_plan()["target_score"] == 75.0
+    assert db.get_exam_plan()["target_score"] == config.DEFAULT_TARGET_TOTAL
+    assert db.get_exam_plan()["essay_score"] == config.DEFAULT_ESSAY_SCORE
     db.close()
 
     assert cmd_report(argparse.Namespace(days=0, start=None, end=None)) == 0
@@ -181,6 +197,55 @@ def test_cmd_record_returns_error_code_on_bad_input(cli_env, capsys):
     assert "录入失败" in capsys.readouterr().out
 
 
+def test_cmd_quiz_does_not_create_default_plan(cli_env, monkeypatch, capsys):
+    """回归 ISSUE-003：抽测不应悄悄写入用户没有设置过的备考计划。"""
+    cmd_init(argparse.Namespace())
+    _fake_input(monkeypatch, ["q"])
+    assert cmd_quiz(argparse.Namespace(count=1, category=None, stats=False)) == 0
+    assert "尚未设置备考计划" in capsys.readouterr().out
+
+    db = Database()
+    assert db.get_exam_plan() is None
+    db.close()
+
+
+def test_cmd_backup_refuses_empty_database(cli_env, capsys):
+    """回归 ISSUE-004：没有练习记录时不应生成空快照。"""
+    cmd_init(argparse.Namespace())
+    assert cmd_backup(argparse.Namespace(list=False)) == 1
+    assert "没有任何练习记录" in capsys.readouterr().out
+    assert list_backups() == []
+
+
+def test_cmd_backup_refuses_missing_database(cli_env, capsys):
+    """数据库尚未初始化时不创建空文件，直接给出提示。"""
+    assert cmd_backup(argparse.Namespace(list=False)) == 1
+    output = capsys.readouterr().out
+    assert "数据库文件不存在" in output
+    assert not Path(config.DB_PATH).exists()
+
+
+def test_cmd_backup_then_restore_roundtrip(cli_env, capsys):
+    """备份 -> 新增记录 -> 还原，数据应回到备份时刻。"""
+    cmd_init(argparse.Namespace())
+    cmd_demo(argparse.Namespace(days=5))
+    recorded = Database().count_records()
+    capsys.readouterr()
+
+    assert cmd_backup(argparse.Namespace(list=False)) == 0
+    assert "数据库已备份" in capsys.readouterr().out
+
+    cmd_init(argparse.Namespace())
+    cmd_demo(argparse.Namespace(days=5))
+    assert Database().count_records() > recorded  # 备份后数据被"误改"
+
+    assert cmd_restore(argparse.Namespace(file="")) == 0
+    output = capsys.readouterr().out
+    assert "已从备份还原" in output
+    assert "自动另存为" in output
+    assert Database().count_records() == recorded
+
+
 def test_cmd_scrape_uses_service_layer(cli_env, monkeypatch, capsys):
     """用桩对象替换 scrape_and_store，验证 CLI 与业务层的接口契约。"""
     import src.main as main_module
@@ -245,12 +310,12 @@ def test_interactive_menu_full_flow(cli_env, monkeypatch, capsys):
     _fake_input(
         monkeypatch,
         [
-            "9",            # 非法编号 -> 提示
+            "99",           # 非法编号 -> 提示
             "3",            # 弱项诊断（无数据）
             "5",            # 公告抓取（网络可能失败，内部降级）
             "6", "增长率",   # 知识库查询
             "6", "",        # 空关键词 -> 不查询
-            "7", "国考", "2027-11-28", "80",  # 设置备考目标
+            "7", "国考", "2027-11-28", "80", "60",  # 设置备考计划（含申论预期分）
             "2",            # 查看记录
             "0",            # 退出
         ],
@@ -283,6 +348,7 @@ def test_interactive_record_via_menu(cli_env, monkeypatch, capsys):
             "25:30",       # 用时
             "",            # 日期默认今天
             "专项突破",      # 备注
+            "y",           # 标记为错题
             "0",           # 退出
         ],
     )
@@ -295,6 +361,8 @@ def test_interactive_record_via_menu(cli_env, monkeypatch, capsys):
     assert record.total_questions == 20
     assert record.duration_seconds == 1530
     assert record.note == "专项突破"
+    assert record.is_wrong is True
+    assert db.count_wrong_records() == 1
     db.close()
 
 
@@ -311,6 +379,7 @@ def test_interactive_record_rejects_illegal_input_without_exit(cli_env, monkeypa
             "20:00",      # 用时
             "",           # 日期
             "",           # 备注
+            "",           # 是否标记为错题
             "0",          # 退出
         ],
     )
