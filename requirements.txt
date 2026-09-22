@@ -1,0 +1,16 @@
+# CEATS 运行依赖
+# 安装：pip install -r requirements.txt
+
+# --- 运行时依赖 ---
+requests>=2.31.0            # 招考公告 HTTP 请求
+beautifulsoup4>=4.12.0      # HTML 解析
+lxml>=5.0.0                 # BeautifulSoup 的高性能解析器
+matplotlib>=3.8.0           # 雷达图 / 折线图 / 柱状图渲染
+
+# --- 开发与测试依赖 ---
+pytest>=7.4.0               # 单元测试与集成测试框架
+pytest-cov>=4.1.0           # 测试覆盖率统计
+
+# 说明：
+# * 数据库使用 Python 标准库 sqlite3，无需额外安装；
+# * 命令行解析使用标准库 argparse，可视化数据计算使用标准库 statistics。
