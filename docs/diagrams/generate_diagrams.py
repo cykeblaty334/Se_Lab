@@ -270,7 +270,8 @@ def draw_architecture():
 
     bands = [
         ("展示层\nPresentation", 10.2, "#DEEBF7", "#2F5597",
-         ["main.py\n命令行菜单", "visualizer.py\n图表渲染", "文本诊断报告"]),
+         ["main.py\n命令行菜单", "webapp.py\n本地 Web 界面", "visualizer.py\n图表渲染",
+          "文本诊断报告"]),
         ("业务层\nLogic", 7.4, "#E2EFDA", "#548235",
          ["recorder.py\n成绩录入与校验", "analyzer.py\n弱项诊断",
           "scraper.py\n公告抓取", "knowledge.py\n知识库检索"]),
@@ -317,7 +318,8 @@ def draw_module_dependency():
 
     w, h = 2.4, 1.2
     nodes = {
-        "main": (6.5, 11.4, 4.4, 1.3),
+        "main": (4.6, 11.4, 4.0, 1.3),
+        "webapp": (11.2, 11.4, 4.0, 1.3),
         "recorder": (2.0, 8.8, w, h),
         "analyzer": (4.8, 8.8, w, h),
         "scraper": (7.6, 8.8, w, h),
@@ -330,17 +332,20 @@ def draw_module_dependency():
     for name, (cx, cy, bw, bh) in nodes.items():
         fc = C_MOD_FILL if name in ("models", "config") else C_FILL
         ec = C_MOD_EDGE if name in ("models", "config") else C_EDGE
-        if name == "main":
+        if name in ("main", "webapp"):
             fc, ec = "#FCE4D6", "#C55A11"
         box(ax, cx, cy, bw, bh, "%s.py" % name, fs=10.5, fc=fc, ec=ec, lw=1.4, bold=True, z=4)
 
-    # main -> 业务层各模块
-    for x, tx in [(5.0, 2.0), (5.6, 4.8), (6.4, 7.6), (7.2, 10.4), (8.0, 13.2)]:
+    # main / webapp -> 业务层各模块（同为展示层入口，各司其职）
+    for x, tx in [(3.6, 2.0), (4.4, 4.8), (5.2, 7.6)]:
         arrow(ax, (x, 10.75), (tx, 9.4), color="#C55A11", lw=1.2)
-    # main -> database
-    poly_arrow(ax, [(4.3, 11.4), (0.3, 11.4), (0.3, 5.8), (5.2, 5.8)], color="#C55A11", lw=1.2)
-    # main -> config
-    poly_arrow(ax, [(8.7, 11.4), (15.4, 11.4), (15.4, 2.8), (12.9, 2.8)], color="#C55A11", lw=1.2)
+    for x, tx in [(10.2, 4.8), (11.2, 10.4), (12.2, 13.2)]:
+        arrow(ax, (x, 10.75), (tx, 9.4), color="#C55A11", lw=1.2, dashed=True)
+    # main / webapp -> 数据层
+    poly_arrow(ax, [(3.0, 11.4), (0.3, 11.4), (0.3, 5.8), (5.2, 5.8)], color="#C55A11", lw=1.2)
+    poly_arrow(ax, [(12.9, 11.4), (16.6, 11.4), (16.6, 4.9), (8.8, 4.9)], color="#C55A11", lw=1.2)
+    # main / webapp -> config
+    poly_arrow(ax, [(6.4, 11.4), (15.4, 11.4), (15.4, 2.8), (12.9, 2.8)], color="#C55A11", lw=1.2)
 
     # 业务层 -> database
     arrow(ax, (2.4, 8.2), (5.6, 6.45), color=C_GRAY, lw=1.1)
@@ -366,7 +371,8 @@ def draw_module_dependency():
 
     # 图例
     box(ax, 8.6, 13.5, 16.6, 1.2,
-        "箭头方向：源模块 import 目标模块；分层摆放（main → 业务 → database → models/config）保证无环",
+        "箭头方向：源模块 import 目标模块；分层摆放（main / webapp → 业务 → database → "
+        "models/config）保证无环",
         fs=9.5, fc="#FBFBFB", ec="#BFBFBF", lw=0.9, z=3)
 
     return save(fig, "module_dependency.png")
