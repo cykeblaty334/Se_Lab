@@ -200,6 +200,23 @@ def test_announcement_dedup_by_url(seeded_db):
     assert seeded_db.count_announcements() == 2
 
 
+def test_count_announcements_can_exclude_navigation(seeded_db):
+    """断网降级写入的「导航」链接可按关键词排除，便于区分真实公告。"""
+    from src.models import Announcement
+
+    seeded_db.save_announcements(
+        [
+            Announcement(None, "测试站", "2026年省考报名公告", "http://a.com/1", None, "报名", ""),
+            Announcement(
+                None, "国家公务员局", "国家公务员局（官方入口）",
+                "http://www.scs.gov.cn/", None, "导航", "",
+            ),
+        ]
+    )
+    assert seeded_db.count_announcements() == 2
+    assert seeded_db.count_announcements(exclude_keyword="导航") == 1
+
+
 def test_knowledge_operations(seeded_db):
     """知识库新增、检索与分类查询。"""
     assert "公式" in seeded_db.list_knowledge_categories()

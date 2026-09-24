@@ -73,6 +73,7 @@ def test_build_parser_recognizes_all_commands():
     assert parser.parse_args(["kb", "--keyword", "增长率"]).keyword == "增长率"
     assert parser.parse_args(["demo", "--days", "10"]).days == 10
     assert parser.parse_args(["web", "--port", "5001"]).port == 5001
+    assert parser.parse_args(["scrape", "--list", "--limit", "30"]).list is True
 
 
 def test_record_requires_mandatory_arguments():
@@ -510,3 +511,166 @@ def test_delete_record_via_menu(cli_env, monkeypatch, capsys):
     db = Database()
     assert db.count_records() == 0
     db.close()
+
+
+# ------------------------------------------------------------------ 公告查看
+def _save_announcements(items) -> None:
+    """把给定公告条目写入当前（临时）数据库。"""
+    db = Database()
+    db.save_announcements(items)
+    db.close()
+
+
+def _persisting_stub(result):
+    """构造一个"会落库"的抓取桩，行为与真实 scrape_and_store 一致。"""
+
+    def _run(db, keywords=None):
+        db.save_announcements(result.announcements)
+        return result
+
+    return _run
+
+
+def test_cmd_scrape_list_reads_database_without_network(cli_env, monkeypatch, capsys):
+    """scrape --list 只读库、不发起网络请求，且显示关键词标记。"""
+    import src.main as main_module
+    from src.models import Announcement
+
+    def _forbidden(*args, **kwargs):  # pragma: no cover - 被调用即用例失败
+        raise AssertionError("scrape --list 不应调用抓取逻辑")
+
+    monkeypatch.setattr(main_module, "scrape_and_store", _forbidden)
+    cmd_init(argparse.Namespace())
+    _save_announcements(
+        [
+            Announcement(None, "测试站", "2026年省考报名公告", "http://x.com/1", None, "报名", ""),
+        ]
+    )
+
+    assert cmd_scrape(argparse.Namespace(keywords="", limit=5, list=True)) == 0
+    output = capsys.readouterr().out
+    assert "[报名]2026年省考报名公告" in output
+    assert "数据库中累计公告：1 条" in output
+    assert "抓取完成" not in output
+
+
+def test_cmd_scrape_list_hints_when_empty(cli_env, capsys):
+    """库中没有公告时，scrape --list 给出抓取提示而不是报错。"""
+    cmd_init(argparse.Namespace())
+    assert cmd_scrape(argparse.Namespace(keywords="", limit=5, list=True)) == 0
+    output = capsys.readouterr().out
+    assert "库中暂无公告" in output
+    assert "数据库中累计公告：0 条" in output
+
+
+def test_cmd_scrape_hints_when_truncated(cli_env, monkeypatch, capsys):
+    """展示条数被 --limit 截断时，提示总数与查看全部的方式。"""
+    import src.main as main_module
+    from src.models import Announcement
+    from src.scraper import ScrapeResult, SiteResult
+
+    items = [
+        Announcement(None, "测试站", f"公告 {index}", f"http://x.com/{index}", None, "公告", "")
+        for index in range(1, 6)
+    ]
+    result = ScrapeResult(
+        sites=[SiteResult(source="测试站", url="http://x.com", success=True, count=5)],
+        announcements=items,
+    )
+    monkeypatch.setattr(main_module, "scrape_and_store", _persisting_stub(result))
+
+    cmd_init(argparse.Namespace())
+    assert cmd_scrape(argparse.Namespace(keywords="", limit=2)) == 0
+    output = capsys.readouterr().out
+    assert "公告 2" in output
+    assert "公告 3" not in output
+    assert "共 5 条，仅显示前 2 条" in output
+
+
+def test_cmd_scrape_separates_navigation_links(cli_env, monkeypatch, capsys):
+    """断网降级写入的导航链接需与真实公告分开计数。"""
+    import src.main as main_module
+    from src.models import Announcement
+    from src.scraper import ScrapeResult, SiteResult
+
+    result = ScrapeResult(
+        sites=[SiteResult(source="测试站", url="http://x.com", success=False, count=0)],
+        announcements=[
+            Announcement(
+                None, "国家公务员局", "国家公务员局（官方入口）",
+                "http://www.scs.gov.cn/", None, "导航", "",
+            ),
+        ],
+        used_fallback=True,
+    )
+    monkeypatch.setattr(main_module, "scrape_and_store", _persisting_stub(result))
+
+    cmd_init(argparse.Namespace())
+    _save_announcements(
+        [
+            Announcement(None, "测试站", "2026年省考报名公告", "http://x.com/1", None, "报名", ""),
+        ]
+    )
+    assert cmd_scrape(argparse.Namespace(keywords="", limit=10)) == 0
+    output = capsys.readouterr().out
+    assert "累计公告：2 条（真实公告 1 条 + 降级导航链接 1 条）" in output
+    assert "已切换为「链接导航」模式" in output
+
+
+def test_menu_announcement_branch_matches_cli(cli_env, monkeypatch, capsys):
+    """菜单功能 5 与命令行 scrape 输出一致：带关键词标记与累计公告数。"""
+    import src.main as main_module
+    from src.models import Announcement
+    from src.scraper import ScrapeResult, SiteResult
+
+    result = ScrapeResult(
+        sites=[SiteResult(source="测试站", url="http://x.com", success=True, count=1)],
+        announcements=[
+            Announcement(None, "测试站", "2026年省考报名公告", "http://x.com/1", None, "报名", ""),
+        ],
+    )
+    monkeypatch.setattr(main_module, "scrape_and_store", _persisting_stub(result))
+
+    cmd_init(argparse.Namespace())
+    _fake_input(monkeypatch, ["5", "0"])
+    assert cmd_menu(argparse.Namespace()) == 0
+    output = capsys.readouterr().out
+    assert "[报名]2026年省考报名公告" in output
+    assert "数据库中累计公告：1 条" in output
+
+
+def test_menu_mark_wrong_lists_records_before_prompt(cli_env, monkeypatch, capsys):
+    """菜单功能 12 在询问 ID 之前先打印记录列表，避免用户来回切换菜单。"""
+    _record_one_via_cli()
+    _fake_input(
+        monkeypatch,
+        [
+            "12", "1", "n",   # 打错题标记
+            "12", "1", "y",   # 再取消，验证分支可重入
+            "0",
+        ],
+    )
+    assert cmd_menu(argparse.Namespace()) == 0
+    output = capsys.readouterr().out
+    assert "行程问题" in output                    # 列表已打印
+    assert "已标记为错题：#1" in output
+    assert "已取消错题标记：#1" in output
+
+    db = Database()
+    assert db.get_record(1).is_wrong is False
+    db.close()
+
+
+def test_menu_plan_defaults_from_current_plan(cli_env, monkeypatch, capsys):
+    """菜单功能 7 的默认值取自当前已设置的计划，而不是写死的配置默认值。"""
+    from src.planner import PlanService
+
+    db = Database()
+    PlanService(db).set_plan("2026 年广东省考", "2026-12-20", "130", "60")
+    db.close()
+
+    _fake_input(monkeypatch, ["7", "", "", "", "", "0"])  # 四项均回车采用默认值
+    assert cmd_menu(argparse.Namespace()) == 0
+    output = capsys.readouterr().out
+    assert "已设置备考目标：2026 年广东省考 @ 2026-12-20" in output
+    assert "考试日期须为 YYYY-MM-DD" in output

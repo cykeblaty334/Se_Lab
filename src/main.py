@@ -12,7 +12,7 @@
     list     查看最近练习记录
     report   生成文本诊断报告
     chart    生成雷达图 / 趋势图 / 得分排名图
-    scrape   抓取招考公告（失败自动降级为链接导航）
+    scrape   抓取招考公告（失败自动降级为链接导航；--list 只看已入库）
     kb       知识库检索 / 浏览
     plan     备考倒计时与目标分拆解（set / show）
     quiz     弱项考点极速抽测闪卡（终端互动判分）
@@ -45,6 +45,7 @@ from .exporter import (
     restore_database,
 )
 from .knowledge import KnowledgeBase, KnowledgeBaseError
+from .models import Announcement
 from .planner import PlanError, PlanService
 from .quiz import QuizService
 from .recorder import RecordError, RecordService, build_feedback
@@ -68,6 +69,29 @@ MENU_TEXT = f"""
 def _print(text: str = "") -> None:
     """统一输出封装，便于后续替换为日志。"""
     print(text)
+
+
+#: 断网降级时写入的官方入口链接使用的关键词标记
+NAV_KEYWORD = "导航"
+
+
+def _print_announcements(items: List[Announcement], limit: int = 0) -> None:
+    """打印公告列表（带关键词标记；截断时提示如何查看全部）。"""
+    shown = items[:limit] if limit else items
+    for index, item in enumerate(shown, start=1):
+        tag = f"[{item.matched_keyword}]" if item.matched_keyword else ""
+        _print(f"{index:>2}. {tag}{item.title}\n    {item.url}")
+    if limit and len(items) > limit:
+        _print(f"（共 {len(items)} 条，仅显示前 {limit} 条；加 --limit {len(items)} 可看全部）")
+
+
+def _announcement_count_text(db: Database) -> str:
+    """公告入库情况说明（区分真实公告与断网降级写入的导航链接）。"""
+    total = db.count_announcements()
+    real = db.count_announcements(exclude_keyword=NAV_KEYWORD)
+    if total > real:
+        return f"数据库中累计公告：{total} 条（真实公告 {real} 条 + 降级导航链接 {total - real} 条）"
+    return f"数据库中累计公告：{total} 条"
 
 
 # ------------------------------------------------------------------ 命令实现
@@ -175,16 +199,23 @@ def cmd_chart(args) -> int:
 
 
 def cmd_scrape(args) -> int:
-    """抓取招考公告并入库。"""
+    """抓取招考公告并入库；带 --list 时只查看已入库公告（不联网）。"""
     db = Database()
+    if getattr(args, "list", False):
+        items = db.list_announcements(keyword=args.keywords or None, limit=args.limit)
+        if not items:
+            _print("库中暂无公告，可先执行 python -m src.main scrape 抓取。")
+        else:
+            _print_announcements(items, args.limit)
+        _print(_announcement_count_text(db))
+        db.close()
+        return 0
     keywords = args.keywords.split(",") if args.keywords else None
     result = scrape_and_store(db, keywords=keywords)
     _print(result.summary())
     _print("-" * 60)
-    for index, item in enumerate(result.announcements[: args.limit], start=1):
-        tag = f"[{item.matched_keyword}]" if item.matched_keyword else ""
-        _print(f"{index:>2}. {tag}{item.title}\n    {item.url}")
-    _print(f"数据库中累计公告：{db.count_announcements()} 条")
+    _print_announcements(result.announcements, args.limit)
+    _print(_announcement_count_text(db))
     db.close()
     return 0
 
@@ -551,17 +582,34 @@ def cmd_menu(args) -> int:
             elif choice == "5":
                 result = scrape_and_store(db)
                 _print(result.summary())
-                for index, item in enumerate(result.announcements[:10], start=1):
-                    _print(f"{index:>2}. {item.title}\n    {item.url}")
+                _print("-" * 60)
+                _print_announcements(result.announcements, 10)
+                _print(_announcement_count_text(db))
             elif choice == "6":
                 keyword = _prompt("请输入关键词（如 隔年增长率 / 申论）")
                 if keyword:
                     _print(KnowledgeBase.format_items(kb.search(keyword)))
             elif choice == "7":
-                name = _prompt("考试名称", config.DEFAULT_EXAM_NAME)
-                exam_date = _prompt("考试日期（YYYY-MM-DD）", config.DEFAULT_EXAM_DATE)
-                score = _prompt("目标总分（行测+申论，200 分制）", "135")
-                essay = _prompt("申论预期得分", "65")
+                current = planner.current() or {}
+                _print("设置备考计划（方括号内为默认值，直接回车即采用）：")
+                _print("  考试日期须为 YYYY-MM-DD 且不早于今天；目标总分为 1~200；"
+                       "申论预期分须小于目标总分。")
+                name = _prompt(
+                    "考试名称（同名视为同一条计划）",
+                    str(current.get("exam_name") or config.DEFAULT_EXAM_NAME),
+                )
+                exam_date = _prompt(
+                    "考试日期（YYYY-MM-DD）",
+                    str(current.get("exam_date") or config.DEFAULT_EXAM_DATE),
+                )
+                score = _prompt(
+                    "目标总分（行测+申论，200 分制）",
+                    f"{float(current.get('target_score') or config.DEFAULT_TARGET_TOTAL):g}",
+                )
+                essay = _prompt(
+                    "申论预期得分",
+                    f"{float(current.get('essay_score') or config.DEFAULT_ESSAY_SCORE):g}",
+                )
                 try:
                     planner.set_plan(name, exam_date, score, essay)
                 except PlanError as exc:
@@ -615,7 +663,9 @@ def cmd_menu(args) -> int:
                 else:
                     _print(f"数据库已备份：{backup_database()}")
             elif choice == "12":
-                record_id = _prompt("要标记的记录 ID（列表见功能 2）")
+                cmd_list(argparse.Namespace(limit=10, wrong=False))
+                _print("（上表最后一列「错题」显示「是」表示已标记，直接填该行 ID 可取消标记）")
+                record_id = _prompt("要标记 / 取消标记的记录 ID")
                 if not record_id.isdigit():
                     _print("记录 ID 必须是数字。")
                     continue
@@ -626,7 +676,9 @@ def cmd_menu(args) -> int:
                 else:
                     _print(f"{'已取消错题标记' if clear else '已标记为错题'}：#{record.id}")
             elif choice == "13":
-                record_id = _prompt("要删除的记录 ID（列表见功能 2）")
+                cmd_list(argparse.Namespace(limit=10, wrong=False))
+                _print("（删除后无法撤销，可先用功能 11 备份数据库）")
+                record_id = _prompt("要删除的记录 ID")
                 if not record_id.isdigit():
                     _print("记录 ID 必须是数字。")
                     continue
@@ -694,9 +746,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--show", action="store_true", help="生成后用图形窗口弹出展示（答辩演示用）"
     )
 
-    scrape_parser = subparsers.add_parser("scrape", help="抓取招考公告")
+    scrape_parser = subparsers.add_parser("scrape", help="抓取招考公告（--list 只看已入库）")
     scrape_parser.add_argument("--keywords", default="", help="逗号分隔的关注关键词")
     scrape_parser.add_argument("--limit", type=int, default=15, help="展示条数")
+    scrape_parser.add_argument(
+        "--list", action="store_true", help="只列出已入库公告，不发起网络请求"
+    )
 
     kb_parser = subparsers.add_parser("kb", help="知识库查询")
     kb_parser.add_argument("--keyword", default="", help="查询关键词")

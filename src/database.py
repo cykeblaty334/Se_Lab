@@ -559,9 +559,20 @@ class Database:
             ).fetchall()
         return [Announcement.from_row(row) for row in rows]
 
-    def count_announcements(self) -> int:
-        """统计已入库公告数量。"""
-        row = self.conn.execute("SELECT COUNT(*) AS c FROM announcements").fetchone()
+    def count_announcements(self, exclude_keyword: Optional[str] = None) -> int:
+        """统计已入库公告数量。
+
+        :param exclude_keyword: 需要排除的关键词标记；断网降级写入的官方入口
+            链接标记为「导航」，不属于真实公告，可传入该词把它们排除。
+        """
+        if exclude_keyword:
+            row = self.conn.execute(
+                "SELECT COUNT(*) AS c FROM announcements "
+                "WHERE matched_keyword IS NULL OR matched_keyword <> ?",
+                (exclude_keyword,),
+            ).fetchone()
+        else:
+            row = self.conn.execute("SELECT COUNT(*) AS c FROM announcements").fetchone()
         return int(row["c"])
 
     # ------------------------------------------------------------ 知识库
