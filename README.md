@@ -20,7 +20,7 @@
 
 | 模块 | 核心能力 |
 | --- | --- |
-| 公告聚合 | 抓取国家公务员局 / 广东省人事考试局公告，按关键词（报名、公告、职位表…）标记，重复自动去重；全部站点失败时降级为官方入口链接导航 |
+| 公告聚合 | 抓取国家公务员局 / 广东省人事考试局公告，按关键词（报名、公告、职位表…）标记，重复自动去重；全部站点失败时降级为官方入口链接导航；`scrape --list` 可离线查看已入库公告（无需联网） |
 | 成绩记录 | 校验日期、模块、考点、题数、对题数、用时共 6 类输入；支持 `25:30`、`1:05:00`、`1500` 三种用时写法；录入后立即返回正确率与速度等级 |
 | 弱项诊断 | 三维加权评分（正确率 0.6 + 效率 0.3 + 稳定性 0.1），定位薄弱考点，预警单题耗时超 60 秒的模块 |
 | 可视化 | 五角能力雷达图、正确率与耗时双轴趋势图、模块得分排名图（中文渲染），可用 `--show` 弹窗展示 |
@@ -189,7 +189,7 @@ python -m src.main web --port 8080
 | `export` | 导出 Markdown / CSV 诊断报告 | `--format md\|csv\|all` / `--out` |
 | `backup` | 备份数据库为带时间戳的快照（空库会拒绝，防止生成无意义的空快照） | `--list` |
 | `restore` | 从备份文件还原数据库（还原前自动再备份一次当前库） | `--file`（留空用最新备份） |
-| `scrape` | 抓取招考公告并入库 | `--keywords --limit` |
+| `scrape` | 抓取招考公告并入库（`--list` 只查看已入库公告，不联网） | `--keywords --limit --list` |
 | `kb` | 知识库检索或按分类浏览 | `--keyword` / `--category` |
 | `demo` | 写入演示数据（便于演示与出图） | `--days` |
 | `menu` | 进入交互式菜单（无参数时的默认行为） | — |
@@ -259,9 +259,9 @@ python -m pytest tests -q --cov=src --cov-report=term-missing
 python -m flake8 src tests      # 静态检查：PEP 8 + 行宽 100，当前零告警
 ```
 
-当前状态：**363 个用例全部通过，语句覆盖率 92%**
+当前状态：**371 个用例全部通过，语句覆盖率 92%**
 （planner / quiz / exporter / knowledge / config 100%，recorder / reviewer 99%，
-analyzer / models / visualizer 97%，database / scraper 96%，webapp 95%，main 73%）
+analyzer / models / visualizer / scraper 97%，database 96%，webapp 95%，main 75%）
 
 测试不依赖真实网络与真实数据库：数据库使用临时文件或内存库，
 网络请求通过可注入的 `Session` 桩对象替换。
