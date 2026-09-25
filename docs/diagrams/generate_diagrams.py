@@ -682,7 +682,7 @@ def crow_foot(ax, x, y, sign=1, size=0.42, color=C_LINE, lw=1.2):
 
 
 def draw_er_diagram():
-    """绘制数据库 ER 图（6 张表 + 1:N 关系 + 3NF 说明）。"""
+    """绘制数据库 ER 图（7 张表 + 1:N 关系 + 3NF 说明）。"""
     fig, ax = fig_ax(12.5, 9, (-1, 21), (0, 15.6),
                      "图 8  CEATS 数据库 ER 图（SQLite: ceats.db）")
 
@@ -698,19 +698,26 @@ def draw_er_diagram():
                 ("FK", "module_id : INTEGER"), ("FK", "topic_id : INTEGER"),
                 ("", "total_questions : INTEGER"), ("", "correct_questions : INTEGER"),
                 ("", "duration_seconds : INTEGER"), ("", "note : TEXT"),
-                ("", "created_at : TEXT")], fc="#FFF2CC", ec=C_UC_EDGE)
-    entity_box(ax, 3.2, 9.4, 5.6, "announcements",
+                ("", "is_wrong : INTEGER"), ("", "created_at : TEXT")],
+               fc="#FFF2CC", ec=C_UC_EDGE)
+    entity_box(ax, 2.9, 9.2, 4.8, "announcements",
                [("PK", "id : INTEGER"), ("", "source : TEXT"), ("", "title : TEXT"),
                 ("UK", "url : TEXT"), ("", "publish_date : TEXT"),
                 ("", "matched_keyword : TEXT"), ("", "fetched_at : TEXT")],
                fc="#E2EFDA", ec=C_MOD_EDGE)
-    entity_box(ax, 9.9, 9.4, 5.8, "knowledge_items",
+    entity_box(ax, 8.0, 9.2, 4.8, "knowledge_items",
                [("PK", "id : INTEGER"), ("UK", "keyword : TEXT"), ("", "category : TEXT"),
                 ("", "content : TEXT"), ("", "example : TEXT")])
-    entity_box(ax, 16.8, 9.4, 6.0, "exam_plans",
+    entity_box(ax, 13.1, 9.2, 4.8, "exam_plans",
                [("PK", "id : INTEGER"), ("UK", "exam_name : TEXT"), ("", "exam_date : TEXT"),
-                ("", "target_score : REAL"), ("", "created_at : TEXT")],
+                ("", "target_score : REAL"), ("", "essay_score : REAL"),
+                ("", "created_at : TEXT")],
                fc="#FFF2CC", ec=C_UC_EDGE)
+    entity_box(ax, 18.2, 9.2, 4.8, "quiz_log",
+               [("PK", "id : INTEGER"), ("", "quiz_date : TEXT"), ("", "keyword : TEXT"),
+                ("", "category : TEXT"), ("", "user_answer : TEXT"), ("", "score : REAL"),
+                ("", "passed : INTEGER"), ("", "elapsed_seconds : REAL"),
+                ("", "created_at : TEXT")], fc="#E2EFDA", ec=C_MOD_EDGE)
 
     # modules 1 — N topics
     ax.add_line(Line2D([5.7, 6.5], [13.0, 13.0], color=C_LINE, lw=1.4, zorder=3))
@@ -735,9 +742,9 @@ def draw_er_diagram():
     text(ax, 12.25, 12.72, "1", fs=10, color=C_LINE, bold=True)
     text(ax, 12.9, 11.95, "0..N", fs=9, color=C_LINE, bold=True)
 
-    text(ax, 10.0, 4.7, "满足第三范式(3NF)：非主属性完全依赖主键，无传递依赖", fs=10.5,
+    text(ax, 10.0, 3.5, "满足第三范式(3NF)：非主属性完全依赖主键，无传递依赖", fs=10.5,
          color="#1F3864", bold=True)
-    text(ax, 10.0, 3.9, "practice_records 为事实表（PK id），modules / topics 为维表；"
+    text(ax, 10.0, 2.7, "practice_records 为事实表（PK id），modules / topics 为维表；"
                         "FK 建立 1→N 关联，支持按模块与时间聚合", fs=9, color=C_GRAY)
 
     return save(fig, "er_diagram.png")
